@@ -20,18 +20,34 @@ Ichtux is a reproducible Linux distribution built from scratch following [Linux 
 
 - ✅ **Built from Source**: Core components (toolchain, kernel, graphics) built from upstream sources
 - ✅ **Reproducible Builds**: Automated via GitHub Actions with complete build transparency
+- ✅ **Modular Architecture**: Individual components published with version tags (e.g., `ghcr.io/hanthor/ichtux/core/gcc:13.2.0`)
 - ✅ **Bootc Compatible**: Direct deployment to bare metal or VMs via bootc
 - ✅ **OCI Native**: Distributed as standard container images
 - ✅ **GNOME Desktop**: Full-featured desktop environment
 - ✅ **Automated Updates**: Renovate-managed dependency tracking
 
-## 📦 Quick Start
+## Quick Start
 
-### Pull the Image
+### Option 1: Pull Complete System
 
 ```bash
 podman pull ghcr.io/hanthor/ichtux:latest
 ```
+
+### Option 2: Use Modular Components
+
+```bash
+# Pull specific components by version
+docker pull ghcr.io/hanthor/ichtux/core/gcc:13.2.0
+docker pull ghcr.io/hanthor/ichtux/core/bash:5.2.21
+docker pull ghcr.io/hanthor/ichtux/system/linux-kernel:6.7.0
+docker pull ghcr.io/hanthor/ichtux/graphics/mesa:24.0.0
+
+# Or use phase aggregates
+docker pull ghcr.io/hanthor/ichtux/phase1-toolchain:1.0.0
+```
+
+See [Modular Components Guide](docs/modular-components.md) for details.
 
 ### Deploy to Disk
 
@@ -223,6 +239,7 @@ sudo systemctl reboot
 
 ## 📚 Documentation
 
+- [Modular Components](docs/modular-components.md) - Using versioned component images
 - [Phase 1: Toolchain Build](docs/phase1-toolchain.md)
 - [Phase 2: Base OS Build](docs/phase2-base.md)
 - [Phase 3: Graphical Stack](docs/phase3-graphical.md)
