@@ -1,0 +1,351 @@
+# Phase 1: Bootstrap Toolchain - True "From Scratch"
+# Alpine is used ONLY to bootstrap initial GCC/Glibc
+# Then we build ALL tools (tar, wget, make, etc.) from source
+# Final image contains ONLY what we built - NO Alpine components
+
+# ============================================================================
+# Minimal Bootstrap: Use Alpine ONLY for initial compiler
+# ============================================================================
+FROM alpine:3.19 AS alpine-bootstrap
+
+# Install ABSOLUTE MINIMUM - only for initial GCC/Glibc bootstrap
+RUN apk add --no-cache \
+    bash \
+    binutils \
+    build-base \
+    linux-headers \
+    make \
+    wget \
+    xz
+
+WORKDIR /sources
+
+# Set LFS environment
+ENV LFS=/mnt/lfs \
+    LC_ALL=POSIX \
+    LFS_TGT=x86_64-lfs-linux-gnu \
+    PATH=/tools/bin:/usr/bin:/bin \
+    MAKEFLAGS="-j$(nproc)"
+
+RUN mkdir -p /tools
+
+# Renovate-managed versions
+ARG BINUTILS_VERSION=2.42
+ARG GCC_VERSION=13.2.0
+ARG GLIBC_VERSION=2.39
+ARG LINUX_VERSION=6.7.0
+ARG MPFR_VERSION=4.2.1
+ARG GMP_VERSION=6.3.0
+ARG MPC_VERSION=1.3.1
+ARG ISL_VERSION=0.26
+# Build tools that we'll compile from source
+ARG M4_VERSION=1.4.19
+ARG NCURSES_VERSION=6.4
+ARG BASH_VERSION=5.2.21
+ARG COREUTILS_VERSION=9.4
+ARG DIFFUTILS_VERSION=3.10
+ARG FILE_VERSION=5.45
+ARG FINDUTILS_VERSION=4.9.0
+ARG GAWK_VERSION=5.3.0
+ARG GREP_VERSION=3.11
+ARG GZIP_VERSION=1.13
+ARG MAKE_VERSION=4.4.1
+ARG PATCH_VERSION=2.7.6
+ARG SED_VERSION=4.9
+ARG TAR_VERSION=1.35
+ARG TEXINFO_VERSION=7.1
+ARG XZ_VERSION=5.4.6
+ARG BISON_VERSION=3.8.2
+ARG WGET_VERSION=1.21.4
+
+# Download ALL sources (last time using Alpine's wget)
+# Using --no-verbose instead of -q to show errors but not progress
+RUN wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/glibc/glibc-${GLIBC_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${LINUX_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/mpfr/mpfr-${MPFR_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/gmp/gmp-${GMP_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/mpc/mpc-${MPC_VERSION}.tar.gz && \
+    wget --no-verbose --tries=3 --timeout=30 https://gcc.gnu.org/pub/gcc/infrastructure/isl-${ISL_VERSION}.tar.bz2 && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/m4/m4-${M4_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/ncurses/ncurses-${NCURSES_VERSION}.tar.gz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}.tar.gz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/coreutils/coreutils-${COREUTILS_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/diffutils/diffutils-${DIFFUTILS_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.astron.com/pub/file/file-${FILE_VERSION}.tar.gz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/findutils/findutils-${FINDUTILS_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/gawk/gawk-${GAWK_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/grep/grep-${GREP_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/gzip/gzip-${GZIP_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/make/make-${MAKE_VERSION}.tar.gz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/patch/patch-${PATCH_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/sed/sed-${SED_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/tar/tar-${TAR_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/texinfo/texinfo-${TEXINFO_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://github.com/tukaani-project/xz/releases/download/v${XZ_VERSION}/xz-${XZ_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/bison/bison-${BISON_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/wget/wget-${WGET_VERSION}.tar.gz
+
+# ===========================================================================
+# PHASE 1: Bootstrap GCC and Glibc (using Alpine's compiler)
+# ===========================================================================
+
+FROM alpine-bootstrap AS binutils-pass1
+ARG BINUTILS_VERSION=2.42
+RUN tar xf binutils-${BINUTILS_VERSION}.tar.xz && \
+    cd binutils-${BINUTILS_VERSION} && \
+    mkdir build && cd build && \
+    ../configure \
+        --prefix=/tools \
+        --with-sysroot=/tools \
+        --target=${LFS_TGT} \
+        --disable-nls \
+        --enable-gprofng=no \
+        --disable-werror && \
+    make && make install
+
+FROM binutils-pass1 AS gcc-pass1
+ARG GCC_VERSION=13.2.0
+ARG MPFR_VERSION=4.2.1
+ARG GMP_VERSION=6.3.0
+ARG MPC_VERSION=1.3.1
+RUN tar xf gcc-${GCC_VERSION}.tar.xz && \
+    cd gcc-${GCC_VERSION} && \
+    tar xf /sources/mpfr-${MPFR_VERSION}.tar.xz && mv mpfr-${MPFR_VERSION} mpfr && \
+    tar xf /sources/gmp-${GMP_VERSION}.tar.xz && mv gmp-${GMP_VERSION} gmp && \
+    tar xf /sources/mpc-${MPC_VERSION}.tar.gz && mv mpc-${MPC_VERSION} mpc && \
+    case $(uname -m) in x86_64) sed -e '/m64=/s/lib64/lib/' -i.orig gcc/config/i386/t-linux64 ;; esac && \
+    mkdir build && cd build && \
+    ../configure \
+        --target=${LFS_TGT} \
+        --prefix=/tools \
+        --with-glibc-version=2.39 \
+        --with-sysroot=/tools \
+        --with-newlib \
+        --without-headers \
+        --enable-default-pie \
+        --enable-default-ssp \
+        --disable-nls \
+        --disable-shared \
+        --disable-multilib \
+        --disable-threads \
+        --disable-libatomic \
+        --disable-libgomp \
+        --disable-libquadmath \
+        --disable-libssp \
+        --disable-libvtv \
+        --disable-libstdcxx \
+        --enable-languages=c,c++ && \
+    make && make install && \
+    cd .. && cat gcc/limitx.h gcc/glimits.h gcc/limity.h > \
+        $(dirname $(/tools/bin/${LFS_TGT}-gcc -print-libgcc-file-name))/include/limits.h
+
+FROM gcc-pass1 AS linux-headers
+ARG LINUX_VERSION=6.7.0
+RUN tar xf linux-${LINUX_VERSION}.tar.xz && \
+    cd linux-${LINUX_VERSION} && \
+    make mrproper && make headers && \
+    find usr/include -type f ! -name '*.h' -delete && \
+    mkdir -p /tools/include && cp -r usr/include/* /tools/include/
+
+FROM linux-headers AS glibc-build
+ARG GLIBC_VERSION=2.39
+RUN tar xf glibc-${GLIBC_VERSION}.tar.xz && \
+    cd glibc-${GLIBC_VERSION} && \
+    case $(uname -m) in \
+        x86_64) mkdir -p /tools/lib && \
+                ln -sf ../lib/ld-linux-x86-64.so.2 /tools/lib64 ;; \
+    esac && \
+    mkdir build && cd build && \
+    echo "rootsbindir=/tools/sbin" > configparms && \
+    ../configure \
+        --prefix=/tools \
+        --host=${LFS_TGT} \
+        --build=$(../scripts/config.guess) \
+        --enable-kernel=4.19 \
+        --with-headers=/tools/include \
+        --disable-nscd \
+        libc_cv_slibdir=/tools/lib && \
+    make && make install
+
+FROM glibc-build AS libstdcxx-build
+ARG GCC_VERSION=13.2.0
+RUN cd /sources/gcc-${GCC_VERSION} && \
+    rm -rf build && mkdir build && cd build && \
+    ../libstdc++-v3/configure \
+        --host=${LFS_TGT} \
+        --build=$(../config.guess) \
+        --prefix=/tools \
+        --disable-multilib \
+        --disable-nls \
+        --disable-libstdcxx-pch \
+        --with-gxx-include-dir=/tools/${LFS_TGT}/include/c++/${GCC_VERSION} && \
+    make && make install
+
+# ===========================================================================
+# PHASE 2: Build ALL tools from source using our bootstrap GCC/Glibc
+# From here on, NO Alpine components are used
+# ===========================================================================
+
+FROM libstdcxx-build AS m4-build
+ARG M4_VERSION=1.4.19
+RUN tar xf m4-${M4_VERSION}.tar.xz && cd m4-${M4_VERSION} && \
+    ./configure --prefix=/tools --host=${LFS_TGT} && \
+    make && make install
+
+FROM m4-build AS ncurses-build
+ARG NCURSES_VERSION=6.4
+RUN tar xf ncurses-${NCURSES_VERSION}.tar.gz && cd ncurses-${NCURSES_VERSION} && \
+    sed -i s/mawk// configure && mkdir build && pushd build && \
+    ../configure && make -C include && make -C progs tic && popd && \
+    ./configure --prefix=/tools --host=${LFS_TGT} --build=$(./config.guess) \
+        --mandir=/tools/share/man --with-manpage-format=normal \
+        --with-shared --without-normal --with-cxx-shared --without-debug \
+        --without-ada --disable-stripping --enable-widec && \
+    make && make DESTDIR=/tools install && \
+    echo "INPUT(-lncursesw)" > /tools/lib/libncurses.so
+
+FROM ncurses-build AS bash-build
+ARG BASH_VERSION=5.2.21
+RUN tar xf bash-${BASH_VERSION}.tar.gz && cd bash-${BASH_VERSION} && \
+    ./configure --prefix=/tools --host=${LFS_TGT} \
+        --build=$(sh support/config.guess) --without-bash-malloc && \
+    make && make install && ln -s bash /tools/bin/sh
+
+FROM bash-build AS coreutils-build
+ARG COREUTILS_VERSION=9.4
+RUN tar xf coreutils-${COREUTILS_VERSION}.tar.xz && cd coreutils-${COREUTILS_VERSION} && \
+    ./configure --prefix=/tools --host=${LFS_TGT} \
+        --build=$(build-aux/config.guess) \
+        --enable-install-program=hostname \
+        --enable-no-install-program=kill,uptime && \
+    make && make install
+
+FROM coreutils-build AS diffutils-build
+ARG DIFFUTILS_VERSION=3.10
+RUN tar xf diffutils-${DIFFUTILS_VERSION}.tar.xz && cd diffutils-${DIFFUTILS_VERSION} && \
+    ./configure --prefix=/tools --host=${LFS_TGT} && make && make install
+
+FROM diffutils-build AS file-build
+ARG FILE_VERSION=5.45
+RUN tar xf file-${FILE_VERSION}.tar.gz && cd file-${FILE_VERSION} && \
+    mkdir build && pushd build && \
+    ../configure --disable-bzlib --disable-libseccomp --disable-xzlib --disable-zlib && \
+    make && popd && \
+    ./configure --prefix=/tools --host=${LFS_TGT} && \
+    make FILE_COMPILE=$(pwd)/build/src/file && make install
+
+FROM file-build AS findutils-build
+ARG FINDUTILS_VERSION=4.9.0
+RUN tar xf findutils-${FINDUTILS_VERSION}.tar.xz && cd findutils-${FINDUTILS_VERSION} && \
+    ./configure --prefix=/tools --host=${LFS_TGT} && make && make install
+
+FROM findutils-build AS gawk-build
+ARG GAWK_VERSION=5.3.0
+RUN tar xf gawk-${GAWK_VERSION}.tar.xz && cd gawk-${GAWK_VERSION} && \
+    sed -i 's/extras//' Makefile.in && \
+    ./configure --prefix=/tools --host=${LFS_TGT} && make && make install
+
+FROM gawk-build AS grep-build
+ARG GREP_VERSION=3.11
+RUN tar xf grep-${GREP_VERSION}.tar.xz && cd grep-${GREP_VERSION} && \
+    ./configure --prefix=/tools --host=${LFS_TGT} && make && make install
+
+FROM grep-build AS gzip-build
+ARG GZIP_VERSION=1.13
+RUN tar xf gzip-${GZIP_VERSION}.tar.xz && cd gzip-${GZIP_VERSION} && \
+    ./configure --prefix=/tools --host=${LFS_TGT} && make && make install
+
+FROM gzip-build AS make-build
+ARG MAKE_VERSION=4.4.1
+RUN tar xf make-${MAKE_VERSION}.tar.gz && cd make-${MAKE_VERSION} && \
+    ./configure --prefix=/tools --without-guile --host=${LFS_TGT} && make && make install
+
+FROM make-build AS patch-build
+ARG PATCH_VERSION=2.7.6
+RUN tar xf patch-${PATCH_VERSION}.tar.xz && cd patch-${PATCH_VERSION} && \
+    ./configure --prefix=/tools --host=${LFS_TGT} && make && make install
+
+FROM patch-build AS sed-build
+ARG SED_VERSION=4.9
+RUN tar xf sed-${SED_VERSION}.tar.xz && cd sed-${SED_VERSION} && \
+    ./configure --prefix=/tools --host=${LFS_TGT} && make && make install
+
+FROM sed-build AS tar-build
+ARG TAR_VERSION=1.35
+RUN tar xf tar-${TAR_VERSION}.tar.xz && cd tar-${TAR_VERSION} && \
+    ./configure --prefix=/tools --host=${LFS_TGT} && make && make install
+
+FROM tar-build AS xz-build
+ARG XZ_VERSION=5.4.6
+RUN tar xf xz-${XZ_VERSION}.tar.xz && cd xz-${XZ_VERSION} && \
+    ./configure --prefix=/tools --host=${LFS_TGT} --disable-static && make && make install
+
+FROM xz-build AS bison-build
+ARG BISON_VERSION=3.8.2
+RUN tar xf bison-${BISON_VERSION}.tar.xz && cd bison-${BISON_VERSION} && \
+    ./configure --prefix=/tools --host=${LFS_TGT} && make && make install
+
+FROM bison-build AS texinfo-build
+ARG TEXINFO_VERSION=7.1
+RUN tar xf texinfo-${TEXINFO_VERSION}.tar.xz && cd texinfo-${TEXINFO_VERSION} && \
+    ./configure --prefix=/tools --host=${LFS_TGT} && make && make install
+
+FROM texinfo-build AS wget-build
+ARG WGET_VERSION=1.21.4
+RUN tar xf wget-${WGET_VERSION}.tar.gz && cd wget-${WGET_VERSION} && \
+    ./configure --prefix=/tools --host=${LFS_TGT} --with-ssl=openssl && make && make install
+
+# ===========================================================================
+# PHASE 3: Build full GCC with all our custom tools
+# ===========================================================================
+
+FROM wget-build AS gcc-pass2
+ARG GCC_VERSION=13.2.0
+ARG MPFR_VERSION=4.2.1
+ARG GMP_VERSION=6.3.0
+ARG MPC_VERSION=1.3.1
+RUN cd /sources && rm -rf gcc-${GCC_VERSION} && \
+    tar xf gcc-${GCC_VERSION}.tar.xz && cd gcc-${GCC_VERSION} && \
+    tar xf /sources/mpfr-${MPFR_VERSION}.tar.xz && mv mpfr-${MPFR_VERSION} mpfr && \
+    tar xf /sources/gmp-${GMP_VERSION}.tar.xz && mv gmp-${GMP_VERSION} gmp && \
+    tar xf /sources/mpc-${MPC_VERSION}.tar.gz && mv mpc-${MPC_VERSION} mpc && \
+    case $(uname -m) in x86_64) sed -e '/m64=/s/lib64/lib/' -i.orig gcc/config/i386/t-linux64 ;; esac && \
+    mkdir build && cd build && \
+    ../configure \
+        --build=$(../config.guess) \
+        --host=${LFS_TGT} \
+        --target=${LFS_TGT} \
+        --prefix=/tools \
+        --with-build-sysroot=/tools \
+        --enable-default-pie \
+        --enable-default-ssp \
+        --disable-nls \
+        --disable-multilib \
+        --disable-libatomic \
+        --disable-libgomp \
+        --disable-libquadmath \
+        --disable-libsanitizer \
+        --disable-libssp \
+        --disable-libvtv \
+        --enable-languages=c,c++ && \
+    make && make install && ln -s gcc /tools/bin/cc
+
+# ===========================================================================
+# FINAL: Extract ONLY our built toolchain (NO Alpine!)
+# ===========================================================================
+FROM scratch AS toolchain
+COPY --from=gcc-pass2 /tools /tools
+
+ENV PATH=/tools/bin:$PATH \
+    LC_ALL=POSIX \
+    LFS_TGT=x86_64-lfs-linux-gnu
+
+LABEL org.opencontainers.image.title="Ichtux Phase 1: Bootstrap Toolchain"
+LABEL org.opencontainers.image.description="Complete LFS toolchain built from source - ALL tools included"
+LABEL org.opencontainers.image.source="https://github.com/hanthor/Ichtux"
+LABEL ichtux.phase="1-toolchain"
+LABEL ichtux.lfs.from-scratch="true"
+LABEL ichtux.base-distro="none"
+LABEL ichtux.includes="gcc,glibc,binutils,bash,coreutils,make,wget,tar,xz,grep,sed,gawk,findutils,diffutils,patch,bison,texinfo"

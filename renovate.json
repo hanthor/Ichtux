@@ -1,0 +1,340 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard"
+  ],
+  "labels": ["dependencies", "renovate"],
+  "schedule": ["before 6am on Monday"],
+  "timezone": "UTC",
+  "semanticCommits": "enabled",
+  "commitMessagePrefix": "chore(deps):",
+  "commitMessageAction": "update",
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 0,
+  "packageRules": [
+    {
+      "matchPackagePatterns": ["*"],
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "matchDatasources": ["github-tags", "github-releases"],
+      "automerge": false,
+      "schedule": ["before 6am on Monday"]
+    }
+  ],
+  "regexManagers": [
+    {
+      "description": "Update Linux Kernel versions in Containerfiles",
+      "fileMatch": [
+        "^containerfiles/.*/Containerfile$"
+      ],
+      "matchStrings": [
+        "ARG LINUX_VERSION=(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "linux",
+      "datasourceTemplate": "custom.kernel",
+      "versioningTemplate": "loose"
+    },
+    {
+      "description": "Update GCC versions in Containerfiles",
+      "fileMatch": [
+        "^containerfiles/.*/Containerfile$"
+      ],
+      "matchStrings": [
+        "ARG GCC_VERSION=(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "gcc",
+      "datasourceTemplate": "custom.gnu",
+      "extractVersionTemplate": "^(?<version>\\d+\\.\\d+\\.\\d+)$",
+      "versioningTemplate": "loose"
+    },
+    {
+      "description": "Update Glibc versions in Containerfiles",
+      "fileMatch": [
+        "^containerfiles/.*/Containerfile$"
+      ],
+      "matchStrings": [
+        "ARG GLIBC_VERSION=(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "glibc",
+      "datasourceTemplate": "custom.gnu",
+      "extractVersionTemplate": "^(?<version>\\d+\\.\\d+)$",
+      "versioningTemplate": "loose"
+    },
+    {
+      "description": "Update Binutils versions in Containerfiles",
+      "fileMatch": [
+        "^containerfiles/.*/Containerfile$"
+      ],
+      "matchStrings": [
+        "ARG BINUTILS_VERSION=(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "binutils",
+      "datasourceTemplate": "custom.gnu",
+      "versioningTemplate": "loose"
+    },
+    {
+      "description": "Update systemd versions in Containerfiles",
+      "fileMatch": [
+        "^containerfiles/.*/Containerfile$"
+      ],
+      "matchStrings": [
+        "ARG SYSTEMD_VERSION=(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "systemd/systemd",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v?(?<version>.*)$",
+      "versioningTemplate": "loose"
+    },
+    {
+      "description": "Update Mesa versions in Containerfiles",
+      "fileMatch": [
+        "^containerfiles/.*/Containerfile$"
+      ],
+      "matchStrings": [
+        "ARG MESA_VERSION=(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "mesa",
+      "datasourceTemplate": "custom.mesa",
+      "versioningTemplate": "loose"
+    },
+    {
+      "description": "Update Wayland versions in Containerfiles",
+      "fileMatch": [
+        "^containerfiles/.*/Containerfile$"
+      ],
+      "matchStrings": [
+        "ARG WAYLAND_VERSION=(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "wayland/wayland",
+      "datasourceTemplate": "gitlab-tags",
+      "registryUrlTemplate": "https://gitlab.freedesktop.org",
+      "versioningTemplate": "loose"
+    },
+    {
+      "description": "Update Wayland Protocols versions in Containerfiles",
+      "fileMatch": [
+        "^containerfiles/.*/Containerfile$"
+      ],
+      "matchStrings": [
+        "ARG WAYLAND_PROTOCOLS_VERSION=(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "wayland/wayland-protocols",
+      "datasourceTemplate": "gitlab-tags",
+      "registryUrlTemplate": "https://gitlab.freedesktop.org",
+      "versioningTemplate": "loose"
+    },
+    {
+      "description": "Update GNOME Mutter versions in Containerfiles",
+      "fileMatch": [
+        "^containerfiles/.*/Containerfile$"
+      ],
+      "matchStrings": [
+        "ARG MUTTER_VERSION=(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "GNOME/mutter",
+      "datasourceTemplate": "gitlab-tags",
+      "registryUrlTemplate": "https://gitlab.gnome.org",
+      "versioningTemplate": "loose"
+    },
+    {
+      "description": "Update GNOME Shell versions in Containerfiles",
+      "fileMatch": [
+        "^containerfiles/.*/Containerfile$"
+      ],
+      "matchStrings": [
+        "ARG GNOME_SHELL_VERSION=(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "GNOME/gnome-shell",
+      "datasourceTemplate": "gitlab-tags",
+      "registryUrlTemplate": "https://gitlab.gnome.org",
+      "versioningTemplate": "loose"
+    },
+    {
+      "description": "Update GTK3 versions in Containerfiles",
+      "fileMatch": [
+        "^containerfiles/.*/Containerfile$"
+      ],
+      "matchStrings": [
+        "ARG GTK3_VERSION=(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "GNOME/gtk",
+      "datasourceTemplate": "gitlab-tags",
+      "registryUrlTemplate": "https://gitlab.gnome.org",
+      "versioningTemplate": "loose"
+    },
+    {
+      "description": "Update GTK4 versions in Containerfiles",
+      "fileMatch": [
+        "^containerfiles/.*/Containerfile$"
+      ],
+      "matchStrings": [
+        "ARG GTK4_VERSION=(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "GNOME/gtk",
+      "datasourceTemplate": "gitlab-tags",
+      "registryUrlTemplate": "https://gitlab.gnome.org",
+      "versioningTemplate": "loose"
+    },
+    {
+      "description": "Update BusyBox versions in Containerfiles",
+      "fileMatch": [
+        "^containerfiles/.*/Containerfile$"
+      ],
+      "matchStrings": [
+        "ARG BUSYBOX_VERSION=(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "busybox",
+      "datasourceTemplate": "custom.busybox",
+      "versioningTemplate": "loose"
+    },
+    {
+      "description": "Update util-linux versions in Containerfiles",
+      "fileMatch": [
+        "^containerfiles/.*/Containerfile$"
+      ],
+      "matchStrings": [
+        "ARG UTIL_LINUX_VERSION=(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "util-linux/util-linux",
+      "datasourceTemplate": "github-tags",
+      "extractVersionTemplate": "^v?(?<version>.*)$",
+      "versioningTemplate": "loose"
+    },
+    {
+      "description": "Update e2fsprogs versions in Containerfiles",
+      "fileMatch": [
+        "^containerfiles/.*/Containerfile$"
+      ],
+      "matchStrings": [
+        "ARG E2FSPROGS_VERSION=(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "tytso/e2fsprogs",
+      "datasourceTemplate": "github-tags",
+      "extractVersionTemplate": "^v?(?<version>.*)$",
+      "versioningTemplate": "loose"
+    },
+    {
+      "description": "Update MPFR versions in Containerfiles",
+      "fileMatch": [
+        "^containerfiles/.*/Containerfile$"
+      ],
+      "matchStrings": [
+        "ARG MPFR_VERSION=(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "mpfr",
+      "datasourceTemplate": "custom.gnu",
+      "versioningTemplate": "loose"
+    },
+    {
+      "description": "Update GMP versions in Containerfiles",
+      "fileMatch": [
+        "^containerfiles/.*/Containerfile$"
+      ],
+      "matchStrings": [
+        "ARG GMP_VERSION=(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "gmp",
+      "datasourceTemplate": "custom.gnu",
+      "versioningTemplate": "loose"
+    },
+    {
+      "description": "Update MPC versions in Containerfiles",
+      "fileMatch": [
+        "^containerfiles/.*/Containerfile$"
+      ],
+      "matchStrings": [
+        "ARG MPC_VERSION=(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "mpc",
+      "datasourceTemplate": "custom.gnu",
+      "versioningTemplate": "loose"
+    },
+    {
+      "description": "Update libdrm versions in Containerfiles",
+      "fileMatch": [
+        "^containerfiles/.*/Containerfile$"
+      ],
+      "matchStrings": [
+        "ARG LIBDRM_VERSION=(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "libdrm",
+      "datasourceTemplate": "custom.freedesktop",
+      "versioningTemplate": "loose"
+    },
+    {
+      "description": "Update Coreutils versions in Containerfiles",
+      "fileMatch": [
+        "^containerfiles/.*/Containerfile$"
+      ],
+      "matchStrings": [
+        "ARG COREUTILS_VERSION=(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "coreutils",
+      "datasourceTemplate": "custom.gnu",
+      "versioningTemplate": "loose"
+    },
+    {
+      "description": "Update Bash versions in Containerfiles",
+      "fileMatch": [
+        "^containerfiles/.*/Containerfile$"
+      ],
+      "matchStrings": [
+        "ARG BASH_VERSION=(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "bash",
+      "datasourceTemplate": "custom.gnu",
+      "versioningTemplate": "loose"
+    },
+    {
+      "description": "Update Ncurses versions in Containerfiles",
+      "fileMatch": [
+        "^containerfiles/.*/Containerfile$"
+      ],
+      "matchStrings": [
+        "ARG NCURSES_VERSION=(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "ncurses",
+      "datasourceTemplate": "custom.gnu",
+      "versioningTemplate": "loose"
+    },
+    {
+      "description": "Update Readline versions in Containerfiles",
+      "fileMatch": [
+        "^containerfiles/.*/Containerfile$"
+      ],
+      "matchStrings": [
+        "ARG READLINE_VERSION=(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "readline",
+      "datasourceTemplate": "custom.gnu",
+      "versioningTemplate": "loose"
+    }
+  ],
+  "customDatasources": {
+    "kernel": {
+      "defaultRegistryUrlTemplate": "https://www.kernel.org/",
+      "format": "json",
+      "transformTemplates": [
+        "{\"releases\": $map(releases.*, function($v) { {\"version\": $v.version} })}"
+      ]
+    },
+    "gnu": {
+      "defaultRegistryUrlTemplate": "https://ftp.gnu.org/gnu/",
+      "format": "html"
+    },
+    "mesa": {
+      "defaultRegistryUrlTemplate": "https://archive.mesa3d.org/",
+      "format": "html"
+    },
+    "busybox": {
+      "defaultRegistryUrlTemplate": "https://busybox.net/downloads/",
+      "format": "html"
+    },
+    "freedesktop": {
+      "defaultRegistryUrlTemplate": "https://dri.freedesktop.org/",
+      "format": "html"
+    }
+  }
+}

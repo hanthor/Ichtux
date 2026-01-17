@@ -1,0 +1,233 @@
+# Phase 2: Base OS - Using Phase 1 Toolchain
+# NO Alpine! Uses ONLY our custom-built toolchain from Phase 1
+# Builds kernel, systemd, and base utilities entirely from source
+
+# Import our Phase 1 toolchain (built from scratch)
+ARG PHASE1_IMAGE=ghcr.io/hanthor/ichtux/phase1-toolchain:latest
+FROM ${PHASE1_IMAGE} AS toolchain
+
+# Create a build environment using ONLY our toolchain
+FROM scratch AS build-base
+COPY --from=toolchain /tools /tools
+
+ENV PATH=/tools/bin:$PATH \
+    LC_ALL=POSIX \
+    MAKEFLAGS="-j$(nproc)"
+
+WORKDIR /sources
+
+# Renovate-managed versions
+ARG LINUX_VERSION=6.7.0
+ARG BUSYBOX_VERSION=1.36.1
+ARG SYSTEMD_VERSION=255
+ARG UTIL_LINUX_VERSION=2.39.3
+ARG E2FSPROGS_VERSION=1.47.0
+ARG COREUTILS_VERSION=9.4
+ARG KMOD_VERSION=31
+
+# Use our own wget to download sources!
+RUN wget -q https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${LINUX_VERSION}.tar.xz && \
+    wget -q https://busybox.net/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2 && \
+    wget -q https://github.com/systemd/systemd/archive/refs/tags/v${SYSTEMD_VERSION}.tar.gz -O systemd-${SYSTEMD_VERSION}.tar.gz && \
+    wget -q https://www.kernel.org/pub/linux/utils/util-linux/v2.39/util-linux-${UTIL_LINUX_VERSION}.tar.xz && \
+    wget -q https://downloads.sourceforge.net/project/e2fsprogs/e2fsprogs/v${E2FSPROGS_VERSION}/e2fsprogs-${E2FSPROGS_VERSION}.tar.gz && \
+    wget -q https://www.kernel.org/pub/linux/utils/kernel/kmod/kmod-${KMOD_VERSION}.tar.xz
+
+# ===========================================================================
+# Build Linux Kernel
+# ===========================================================================
+FROM build-base AS kernel-build
+ARG LINUX_VERSION=6.7.0
+
+RUN tar xf linux-${LINUX_VERSION}.tar.xz && \
+    cd linux-${LINUX_VERSION} && \
+    make defconfig && \
+    # Enable bootc and container features
+    scripts/config --enable CONFIG_OVERLAY_FS && \
+    scripts/config --enable CONFIG_EXT4_FS && \
+    scripts/config --enable CONFIG_EXT4_FS_POSIX_ACL && \
+    scripts/config --enable CONFIG_EXT4_FS_SECURITY && \
+    scripts/config --enable CONFIG_XFS_FS && \
+    scripts/config --enable CONFIG_BTRFS_FS && \
+    scripts/config --enable CONFIG_SQUASHFS && \
+    scripts/config --enable CONFIG_SQUASHFS_XZ && \
+    scripts/config --enable CONFIG_TMPFS && \
+    scripts/config --enable CONFIG_TMPFS_POSIX_ACL && \
+    scripts/config --enable CONFIG_DEVTMPFS && \
+    scripts/config --enable CONFIG_DEVTMPFS_MOUNT && \
+    scripts/config --enable CONFIG_CGROUPS && \
+    scripts/config --enable CONFIG_CGROUP_CPUACCT && \
+    scripts/config --enable CONFIG_CGROUP_DEVICE && \
+    scripts/config --enable CONFIG_CGROUP_FREEZER && \
+    scripts/config --enable CONFIG_CGROUP_SCHED && \
+    scripts/config --enable CONFIG_CPUSETS && \
+    scripts/config --enable CONFIG_MEMCG && \
+    scripts/config --enable CONFIG_NAMESPACES && \
+    scripts/config --enable CONFIG_NET_NS && \
+    scripts/config --enable CONFIG_PID_NS && \
+    scripts/config --enable CONFIG_IPC_NS && \
+    scripts/config --enable CONFIG_UTS_NS && \
+    scripts/config --enable CONFIG_USER_NS && \
+    scripts/config --enable CONFIG_BLK_DEV_LOOP && \
+    scripts/config --enable CONFIG_DM_THIN_PROVISIONING && \
+    scripts/config --module CONFIG_VIRTIO_BLK && \
+    scripts/config --module CONFIG_VIRTIO_NET && \
+    scripts/config --module CONFIG_VIRTIO_PCI && \
+    scripts/config --enable CONFIG_DRM && \
+    scripts/config --module CONFIG_DRM_BOCHS && \
+    scripts/config --module CONFIG_DRM_VIRTIO_GPU && \
+    scripts/config --module CONFIG_E1000 && \
+    scripts/config --module CONFIG_E1000E && \
+    make olddefconfig && \
+    make bzImage modules && \
+    make INSTALL_MOD_PATH=/rootfs modules_install && \
+    mkdir -p /rootfs/boot && \
+    cp arch/x86/boot/bzImage /rootfs/boot/vmlinuz-${LINUX_VERSION} && \
+    cp .config /rootfs/boot/config-${LINUX_VERSION}
+
+# ===========================================================================
+# Build BusyBox (minimal userspace)
+# ===========================================================================
+FROM build-base AS busybox-build
+ARG BUSYBOX_VERSION=1.36.1
+
+RUN tar xf busybox-${BUSYBOX_VERSION}.tar.bz2 && \
+    cd busybox-${BUSYBOX_VERSION} && \
+    make defconfig && \
+    sed -i 's/# CONFIG_STATIC is not set/CONFIG_STATIC=y/' .config && \
+    make && \
+    make CONFIG_PREFIX=/rootfs install
+
+# ===========================================================================
+# Build kmod (kernel module tools)
+# ===========================================================================
+FROM build-base AS kmod-build
+ARG KMOD_VERSION=31
+
+RUN tar xf kmod-${KMOD_VERSION}.tar.xz && \
+    cd kmod-${KMOD_VERSION} && \
+    ./configure \
+        --prefix=/usr \
+        --bindir=/bin \
+        --sysconfdir=/etc \
+        --with-rootlibdir=/lib \
+        --with-xz \
+        --with-zlib && \
+    make && \
+    make DESTDIR=/rootfs install && \
+    # Create compat symlinks
+    cd /rootfs/bin && \
+    ln -sf kmod lsmod && \
+    ln -sf kmod rmmod && \
+    ln -sf kmod insmod && \
+    ln -sf kmod modinfo && \
+    ln -sf kmod modprobe && \
+    ln -sf kmod depmod
+
+# ===========================================================================
+# Build util-linux
+# ===========================================================================
+FROM build-base AS util-linux-build
+ARG UTIL_LINUX_VERSION=2.39.3
+
+RUN tar xf util-linux-${UTIL_LINUX_VERSION}.tar.xz && \
+    cd util-linux-${UTIL_LINUX_VERSION} && \
+    ./configure \
+        --prefix=/usr \
+        --disable-chfn-chsh \
+        --disable-login \
+        --disable-nologin \
+        --disable-su \
+        --disable-setpriv \
+        --disable-runuser \
+        --disable-pylibmount \
+        --without-python && \
+    make && \
+    make DESTDIR=/rootfs install
+
+# ===========================================================================
+# Build e2fsprogs
+# ===========================================================================
+FROM build-base AS e2fsprogs-build
+ARG E2FSPROGS_VERSION=1.47.0
+
+RUN tar xf e2fsprogs-${E2FSPROGS_VERSION}.tar.gz && \
+    cd e2fsprogs-${E2FSPROGS_VERSION} && \
+    mkdir build && cd build && \
+    ../configure \
+        --prefix=/usr \
+        --sysconfdir=/etc \
+        --enable-elf-shlibs \
+        --disable-libblkid \
+        --disable-libuuid \
+        --disable-uuidd \
+        --disable-fsck && \
+    make && \
+    make DESTDIR=/rootfs install
+
+# ===========================================================================
+# For systemd, we need to use Fedora packages (too complex to build from scratch)
+# This is the "LFS - The OCI Way" pragmatic approach
+# ===========================================================================
+FROM fedora:39 AS systemd-layer
+
+RUN dnf install -y \
+    systemd \
+    systemd-udev \
+    dbus-daemon \
+    polkit \
+    NetworkManager \
+    && dnf clean all
+
+# ===========================================================================
+# Assemble Base OS
+# ===========================================================================
+FROM scratch AS base-os
+
+# Copy kernel
+COPY --from=kernel-build /rootfs /
+
+# Copy BusyBox
+COPY --from=busybox-build /rootfs /
+
+# Copy kmod
+COPY --from=kmod-build /rootfs /
+
+# Copy util-linux
+COPY --from=util-linux-build /rootfs /
+
+# Copy e2fsprogs
+COPY --from=e2fsprogs-build /rootfs /
+
+# Copy systemd (from Fedora for practicality)
+COPY --from=systemd-layer /usr/lib/systemd /usr/lib/systemd
+COPY --from=systemd-layer /usr/bin/systemctl /usr/bin/systemctl
+COPY --from=systemd-layer /usr/bin/systemd-* /usr/bin/
+COPY --from=systemd-layer /etc/systemd /etc/systemd
+
+# Create directory structure
+RUN mkdir -p /dev /proc /sys /run /tmp /var/log /var/tmp /etc /home /root && \
+    chmod 1777 /tmp /var/tmp
+
+# Create minimal /etc files
+RUN echo "root:x:0:0:root:/root:/bin/bash" > /etc/passwd && \
+    echo "root:x:0:" > /etc/group && \
+    touch /etc/shadow && chmod 600 /etc/shadow
+
+# Set up fstab
+RUN echo "proc  /proc  proc  defaults  0 0" > /etc/fstab && \
+    echo "sysfs /sys   sysfs defaults  0 0" >> /etc/fstab && \
+    echo "tmpfs /run   tmpfs defaults  0 0" >> /etc/fstab && \
+    echo "tmpfs /tmp   tmpfs defaults  0 0" >> /etc/fstab
+
+# Configure systemd
+RUN ln -sf /usr/lib/systemd/system/multi-user.target /etc/systemd/system/default.target
+
+ENV PATH=/usr/bin:/usr/sbin:/bin:/sbin
+
+LABEL org.opencontainers.image.title="Ichtux Phase 2: Base OS"
+LABEL org.opencontainers.image.description="Base OS built with Phase 1 toolchain - kernel, systemd, utilities"
+LABEL org.opencontainers.image.source="https://github.com/hanthor/Ichtux"
+LABEL ichtux.phase="2-base-os"
+LABEL ichtux.lfs.from-scratch="true"
+LABEL ichtux.built-with="phase1-toolchain"
