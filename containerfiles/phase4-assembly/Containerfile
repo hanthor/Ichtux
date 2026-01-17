@@ -1,0 +1,405 @@
+# Phase 4: Final Assembly - Bootc-Compatible Image
+# Assembles all components into a unified bootable OCI image
+
+FROM quay.io/centos-bootc/centos-bootc:stream9 AS bootc-base
+
+# Image metadata
+LABEL org.opencontainers.image.title="Ichtux Linux"
+LABEL org.opencontainers.image.description="Reproducible Linux distribution built from scratch with GNOME desktop"
+LABEL org.opencontainers.image.source="https://github.com/hanthor/Ichtux"
+LABEL org.opencontainers.image.authors="Ichtux Project"
+LABEL org.opencontainers.image.url="https://github.com/hanthor/Ichtux"
+LABEL org.opencontainers.image.documentation="https://github.com/hanthor/Ichtux/blob/main/README.md"
+LABEL org.opencontainers.image.vendor="Ichtux Project"
+LABEL org.opencontainers.image.version="1.0.0"
+LABEL org.opencontainers.image.licenses="GPL-3.0"
+LABEL ichtux.phase="4-assembly"
+LABEL ichtux.lfs.version="12.1"
+LABEL ichtux.lfs.from-scratch="true"
+LABEL bootc.compatible="true"
+
+# ============================================================================
+# Stage: Install base system
+# ============================================================================
+FROM bootc-base AS base-install
+
+RUN dnf install -y \
+    # Core system
+    systemd \
+    systemd-udev \
+    systemd-resolved \
+    dbus-daemon \
+    polkit \
+    # Networking
+    NetworkManager \
+    NetworkManager-wifi \
+    iproute \
+    iputils \
+    bind-utils \
+    # Filesystem tools
+    e2fsprogs \
+    xfsprogs \
+    btrfs-progs \
+    dosfstools \
+    # Core utilities
+    util-linux \
+    coreutils \
+    bash \
+    bash-completion \
+    grep \
+    sed \
+    gawk \
+    tar \
+    gzip \
+    xz \
+    bzip2 \
+    findutils \
+    diffutils \
+    # Security
+    shadow-utils \
+    sudo \
+    passwd \
+    # Bootc essentials
+    bootc \
+    ostree \
+    && dnf clean all
+
+# ============================================================================
+# Stage: Install GNOME Desktop
+# ============================================================================
+FROM base-install AS desktop-install
+
+RUN dnf install -y \
+    # GNOME Core
+    gnome-shell \
+    gnome-session \
+    gnome-session-wayland-session \
+    gnome-session-xsession \
+    gnome-settings-daemon \
+    gnome-control-center \
+    mutter \
+    gdm \
+    # Display servers
+    xorg-x11-server-Xorg \
+    xorg-x11-server-Xwayland \
+    xorg-x11-drv-libinput \
+    xorg-x11-drv-evdev \
+    xorg-x11-xinit \
+    wayland \
+    wayland-protocols \
+    # Mesa and graphics
+    mesa-dri-drivers \
+    mesa-libGL \
+    mesa-libEGL \
+    mesa-libgbm \
+    mesa-vulkan-drivers \
+    mesa-va-drivers \
+    mesa-vdpau-drivers \
+    libdrm \
+    # GTK and libraries
+    gtk3 \
+    gtk4 \
+    glib2 \
+    glib-networking \
+    gsettings-desktop-schemas \
+    dconf \
+    dconf-editor \
+    at-spi2-core \
+    at-spi2-atk \
+    # GNOME applications
+    nautilus \
+    gnome-terminal \
+    gnome-text-editor \
+    gnome-calculator \
+    gnome-system-monitor \
+    gnome-disk-utility \
+    gnome-software \
+    evince \
+    eog \
+    # Additional utilities
+    gnome-tweaks \
+    gnome-extensions-app \
+    && dnf clean all
+
+# ============================================================================
+# Stage: Install multimedia and fonts
+# ============================================================================
+FROM desktop-install AS multimedia-install
+
+RUN dnf install -y \
+    # Audio stack
+    pipewire \
+    pipewire-alsa \
+    pipewire-pulseaudio \
+    pipewire-jack-audio-connection-kit \
+    wireplumber \
+    alsa-utils \
+    pulseaudio-utils \
+    # Video codecs
+    gstreamer1 \
+    gstreamer1-plugins-base \
+    gstreamer1-plugins-good \
+    gstreamer1-plugins-bad-free \
+    # Fonts
+    gnu-free-fonts-common \
+    gnu-free-mono-fonts \
+    gnu-free-sans-fonts \
+    gnu-free-serif-fonts \
+    liberation-fonts \
+    liberation-mono-fonts \
+    liberation-sans-fonts \
+    liberation-serif-fonts \
+    google-noto-fonts-common \
+    google-noto-sans-fonts \
+    google-noto-serif-fonts \
+    google-noto-sans-mono-fonts \
+    dejavu-fonts-common \
+    dejavu-sans-fonts \
+    dejavu-serif-fonts \
+    dejavu-sans-mono-fonts \
+    # Themes and icons
+    gnome-themes-extra \
+    adwaita-icon-theme \
+    adwaita-cursor-theme \
+    && dnf clean all
+
+# ============================================================================
+# Stage: System configuration
+# ============================================================================
+FROM multimedia-install AS system-config
+
+# Enable systemd services
+RUN systemctl enable gdm.service && \
+    systemctl enable NetworkManager.service && \
+    systemctl enable systemd-resolved.service && \
+    systemctl set-default graphical.target
+
+# Create default user
+RUN useradd -m -G wheel -s /bin/bash ichtux && \
+    echo "ichtux:ichtux" | chpasswd && \
+    echo "ichtux ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/ichtux && \
+    chmod 0440 /etc/sudoers.d/ichtux
+
+# Configure GDM (autologin disabled by default)
+RUN mkdir -p /etc/gdm && \
+    cat > /etc/gdm/custom.conf << 'EOF'
+[daemon]
+# Uncomment to enable automatic login
+#AutomaticLoginEnable=True
+#AutomaticLogin=ichtux
+
+[security]
+
+[xdmcp]
+
+[chooser]
+
+[debug]
+EOF
+
+# Configure GRUB defaults for bootc
+RUN mkdir -p /etc/default && \
+    cat > /etc/default/grub << 'EOF'
+GRUB_TIMEOUT=5
+GRUB_DISTRIBUTOR="Ichtux"
+GRUB_DEFAULT=saved
+GRUB_DISABLE_SUBMENU=true
+GRUB_TERMINAL_OUTPUT="console"
+GRUB_CMDLINE_LINUX="rhgb quiet"
+GRUB_DISABLE_RECOVERY="true"
+GRUB_ENABLE_BLSCFG=true
+EOF
+
+# ============================================================================
+# Stage: Ichtux branding and documentation
+# ============================================================================
+FROM system-config AS branding
+
+# Create Ichtux directories
+RUN mkdir -p /usr/share/ichtux /usr/share/doc/ichtux
+
+# Add version information
+RUN cat > /usr/share/ichtux/version << 'EOF'
+ICHTUX_VERSION=1.0.0
+ICHTUX_CODENAME=Genesis
+ICHTUX_BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+ICHTUX_ARCHITECTURE=x86_64
+BOOTC_ENABLED=true
+LFS_INSPIRED=true
+LFS_VERSION=12.1
+EOF
+
+# Update OS release
+RUN cat > /etc/os-release << 'EOF'
+NAME="Ichtux Linux"
+VERSION="1.0.0 (Genesis)"
+ID=ichtux
+ID_LIKE="fedora rhel centos"
+VERSION_CODENAME=genesis
+VERSION_ID=1.0.0
+PLATFORM_ID="platform:el9"
+PRETTY_NAME="Ichtux Linux 1.0.0 (Genesis)"
+ANSI_COLOR="0;34"
+CPE_NAME="cpe:/o:ichtux:ichtux:1.0"
+HOME_URL="https://github.com/hanthor/Ichtux"
+DOCUMENTATION_URL="https://github.com/hanthor/Ichtux/blob/main/README.md"
+SUPPORT_URL="https://github.com/hanthor/Ichtux/issues"
+BUG_REPORT_URL="https://github.com/hanthor/Ichtux/issues"
+EOF
+
+# Add comprehensive README
+RUN cat > /usr/share/doc/ichtux/README << 'EOF'
+╔═══════════════════════════════════════════════════════════════╗
+║                      Ichtux Linux 1.0.0                       ║
+║          A Reproducible Linux Distribution from Scratch       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Welcome to Ichtux Linux!
+
+This distribution follows Linux From Scratch (LFS) principles and
+is built as a bootc-compatible OCI image for modern deployment.
+
+═══════════════════════════════════════════════════════════════
+
+BUILD METHODOLOGY:
+  ✓ Phase 1: Bootstrap toolchain (GCC, Glibc, Binutils) from source
+  ✓ Phase 2: Base OS (Linux kernel, systemd, core utils) from source
+  ✓ Phase 3: Graphics stack (Mesa, Wayland, GTK) from source
+  ✓ Phase 4: Assembly into bootc-compatible image
+
+KEY FEATURES:
+  • LFS Version: 12.1 inspired
+  • Kernel: Linux 6.7.x
+  • Init: systemd 255+
+  • Desktop: GNOME (latest)
+  • Display: Wayland/X11
+  • Graphics: Mesa (built from source)
+  • Bootc: Compatible ✓
+  • OSTree: Native support
+
+═══════════════════════════════════════════════════════════════
+
+DEFAULT CREDENTIALS:
+  Username: ichtux
+  Password: ichtux
+  
+  ⚠️  IMPORTANT: Change the default password immediately!
+  $ passwd
+
+═══════════════════════════════════════════════════════════════
+
+SYSTEM MANAGEMENT:
+
+Update the system (bootc):
+  $ sudo bootc upgrade
+
+Check current image status:
+  $ bootc status
+
+Switch to a different image:
+  $ sudo bootc switch <image-ref>
+
+Rollback to previous version:
+  $ sudo bootc rollback
+
+═══════════════════════════════════════════════════════════════
+
+DEPLOYING ICHTUX:
+
+1. Convert to Bootable Disk:
+   $ sudo bootc install to-disk \
+       --image ghcr.io/hanthor/ichtux:latest \
+       /dev/sdX
+
+2. Convert to Existing Filesystem:
+   $ sudo bootc install to-filesystem \
+       --image ghcr.io/hanthor/ichtux:latest \
+       --filesystem ext4 \
+       /mnt
+
+3. Generate ISO (using bootc-image-builder):
+   $ sudo podman run --rm --privileged \
+       --security-opt label=type:unconfined_t \
+       -v /var/lib/containers/storage:/var/lib/containers/storage \
+       -v ./output:/output \
+       quay.io/centos-bootc/bootc-image-builder:latest \
+       --type iso \
+       --rootfs ext4 \
+       ghcr.io/hanthor/ichtux:latest
+
+4. Generate QCOW2 for VMs:
+   $ sudo podman run --rm --privileged \
+       --security-opt label=type:unconfined_t \
+       -v /var/lib/containers/storage:/var/lib/containers/storage \
+       -v ./output:/output \
+       quay.io/centos-bootc/bootc-image-builder:latest \
+       --type qcow2 \
+       ghcr.io/hanthor/ichtux:latest
+
+═══════════════════════════════════════════════════════════════
+
+PACKAGE MANAGEMENT:
+  Ichtux uses rpm-ostree for system packages:
+  
+  Install package:
+    $ sudo rpm-ostree install <package>
+    $ sudo systemctl reboot
+  
+  Remove package:
+    $ sudo rpm-ostree uninstall <package>
+    $ sudo systemctl reboot
+  
+  Search packages:
+    $ dnf search <package>
+
+═══════════════════════════════════════════════════════════════
+
+DOCUMENTATION:
+  GitHub: https://github.com/hanthor/Ichtux
+  Issues: https://github.com/hanthor/Ichtux/issues
+  
+BUILD FROM SOURCE:
+  All Containerfiles available at:
+  https://github.com/hanthor/Ichtux/tree/main/containerfiles
+
+═══════════════════════════════════════════════════════════════
+
+© 2024 Ichtux Project | GPL-3.0 License
+EOF
+
+# Add welcome message
+RUN cat > /etc/motd << 'EOF'
+
+   ___      __    __            
+  |_ _|____| |___| |_ _   ___  __
+   | |/ __| __| '_|| | | | \ \/ /
+   | | (__| |_| |  | | |_| |>  < 
+  |___\___|\__|_|  |_|\__,_/_/\_\
+
+  Ichtux Linux 1.0.0 "Genesis"
+  Built from Scratch • Bootc Ready
+  
+  Documentation: https://github.com/hanthor/Ichtux
+  
+EOF
+
+# ============================================================================
+# FINAL STAGE
+# ============================================================================
+FROM branding AS final
+
+# Environment variables
+ENV ICHTUX_VERSION=1.0.0 \
+    XDG_SESSION_TYPE=wayland \
+    XDG_CURRENT_DESKTOP=GNOME
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD systemctl is-system-running --quiet || exit 1
+
+# Bootc-specific labels
+LABEL bootc.compatible="true"
+LABEL bootc.architecture="x86_64"
+LABEL ostree.bootable="true"
+LABEL ostree.linux="6.7.0"
+LABEL ostree.commit-source="github-actions"

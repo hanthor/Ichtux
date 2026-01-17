@@ -1,0 +1,207 @@
+# Phase 3: Graphical Stack - Using Phase 1 Toolchain
+# NO Alpine! Uses our custom toolchain to build graphics components
+# Follows "LFS - The OCI Way" for GNOME (uses Fedora for complex desktop)
+
+# Import our Phase 1 toolchain
+ARG PHASE1_IMAGE=ghcr.io/hanthor/ichtux/phase1-toolchain:latest
+FROM ${PHASE1_IMAGE} AS toolchain
+
+# Build environment with our toolchain
+FROM fedora:39 AS build-base-fed
+# We need Fedora's meson/ninja/python ecosystem for modern builds
+RUN dnf install -y \
+    meson \
+    ninja-build \
+    cmake \
+    pkgconfig \
+    python3 \
+    python3-mako \
+    python3-jinja2 \
+    llvm-devel \
+    libxml2-devel \
+    libxslt-devel \
+    expat-devel \
+    libffi-devel \
+    wayland-devel \
+    libdrm-devel \
+    libX11-devel \
+    libxcb-devel \
+    libXext-devel \
+    libXfixes-devel \
+    libxshmfence-devel \
+    libXrandr-devel \
+    libXxf86vm-devel \
+    libva-devel \
+    libvdpau-devel \
+    elfutils-libelf-devel \
+    zlib-devel \
+    && dnf clean all
+
+# Copy our toolchain into Fedora environment
+COPY --from=toolchain /tools /tools
+ENV PATH=/tools/bin:/usr/bin:/bin
+
+WORKDIR /sources
+
+# Renovate-managed versions
+ARG MESA_VERSION=24.0.0
+ARG WAYLAND_VERSION=1.22.0
+ARG WAYLAND_PROTOCOLS_VERSION=1.33
+ARG LIBDRM_VERSION=2.4.120
+ARG PIXMAN_VERSION=0.43.2
+ARG CAIRO_VERSION=1.18.0
+
+# Download graphics sources using our wget
+RUN /tools/bin/wget -q https://archive.mesa3d.org/mesa-${MESA_VERSION}.tar.xz && \
+    /tools/bin/wget -q https://gitlab.freedesktop.org/wayland/wayland/-/releases/${WAYLAND_VERSION}/downloads/wayland-${WAYLAND_VERSION}.tar.xz && \
+    /tools/bin/wget -q https://gitlab.freedesktop.org/wayland/wayland-protocols/-/releases/${WAYLAND_PROTOCOLS_VERSION}/downloads/wayland-protocols-${WAYLAND_PROTOCOLS_VERSION}.tar.xz && \
+    /tools/bin/wget -q https://dri.freedesktop.org/libdrm/libdrm-${LIBDRM_VERSION}.tar.xz && \
+    /tools/bin/wget -q https://www.cairographics.org/releases/pixman-${PIXMAN_VERSION}.tar.gz
+
+# ===========================================================================
+# Build libdrm from source
+# ===========================================================================
+FROM build-base-fed AS libdrm-build
+ARG LIBDRM_VERSION=2.4.120
+
+RUN tar xf libdrm-${LIBDRM_VERSION}.tar.xz && \
+    cd libdrm-${LIBDRM_VERSION} && \
+    meson setup build --prefix=/usr --buildtype=release && \
+    ninja -C build && \
+    DESTDIR=/rootfs ninja -C build install
+
+# ===========================================================================
+# Build Wayland from source
+# ===========================================================================
+FROM build-base-fed AS wayland-build
+ARG WAYLAND_VERSION=1.22.0
+
+RUN tar xf wayland-${WAYLAND_VERSION}.tar.xz && \
+    cd wayland-${WAYLAND_VERSION} && \
+    meson setup build --prefix=/usr --buildtype=release -Ddocumentation=false && \
+    ninja -C build && \
+    DESTDIR=/rootfs ninja -C build install
+
+# ===========================================================================
+# Build Wayland Protocols from source
+# ===========================================================================
+FROM wayland-build AS wayland-protocols-build
+ARG WAYLAND_PROTOCOLS_VERSION=1.33
+
+RUN tar xf wayland-protocols-${WAYLAND_PROTOCOLS_VERSION}.tar.xz && \
+    cd wayland-protocols-${WAYLAND_PROTOCOLS_VERSION} && \
+    meson setup build --prefix=/usr --buildtype=release && \
+    ninja -C build && \
+    DESTDIR=/rootfs ninja -C build install
+
+# ===========================================================================
+# Build Mesa from source
+# ===========================================================================
+FROM libdrm-build AS mesa-build
+ARG MESA_VERSION=24.0.0
+
+COPY --from=wayland-build /rootfs /
+
+RUN tar xf mesa-${MESA_VERSION}.tar.xz && \
+    cd mesa-${MESA_VERSION} && \
+    meson setup build \
+        --prefix=/usr \
+        --buildtype=release \
+        -Dplatforms=x11,wayland \
+        -Dgallium-drivers=swrast,virgl,iris,crocus \
+        -Dvulkan-drivers=intel,swrast \
+        -Dglx=dri \
+        -Degl=enabled \
+        -Dgbm=enabled \
+        -Dgles1=disabled \
+        -Dgles2=enabled \
+        -Dllvm=enabled \
+        -Dshared-glapi=enabled \
+        -Dvalgrind=disabled && \
+    ninja -C build && \
+    DESTDIR=/rootfs ninja -C build install
+
+# ===========================================================================
+# Build Pixman from source
+# ===========================================================================
+FROM build-base-fed AS pixman-build
+ARG PIXMAN_VERSION=0.43.2
+
+RUN tar xf pixman-${PIXMAN_VERSION}.tar.gz && \
+    cd pixman-${PIXMAN_VERSION} && \
+    meson setup build --prefix=/usr --buildtype=release && \
+    ninja -C build && \
+    DESTDIR=/rootfs ninja -C build install
+
+# ===========================================================================
+# GNOME Desktop - Using Fedora (pragmatic LFS approach)
+# Building GNOME from source would require 100+ packages
+# ===========================================================================
+FROM fedora:39 AS gnome-base
+
+RUN dnf install -y \
+    # GNOME Core
+    gnome-shell \
+    gnome-session \
+    gnome-settings-daemon \
+    gnome-control-center \
+    mutter \
+    gdm \
+    # Display infrastructure  
+    xorg-x11-server-Xorg \
+    xorg-x11-drv-libinput \
+    xwayland \
+    # Core applications
+    nautilus \
+    gnome-terminal \
+    gnome-text-editor \
+    gnome-calculator \
+    gnome-system-monitor \
+    # System
+    systemd \
+    dbus-daemon \
+    polkit \
+    NetworkManager \
+    network-manager-applet \
+    # Audio
+    pipewire \
+    pipewire-pulseaudio \
+    wireplumber \
+    alsa-utils \
+    # Fonts
+    gnu-free-fonts-common \
+    liberation-fonts \
+    google-noto-fonts-common \
+    # Themes
+    gnome-themes-extra \
+    adwaita-icon-theme \
+    && dnf clean all
+
+# ===========================================================================
+# Final Assembly
+# ===========================================================================
+FROM gnome-base AS graphical-stack
+
+# Copy our custom-built graphics components
+COPY --from=libdrm-build /rootfs/usr /usr
+COPY --from=wayland-build /rootfs/usr /usr
+COPY --from=wayland-protocols-build /rootfs/usr /usr
+COPY --from=mesa-build /rootfs/usr /usr
+COPY --from=pixman-build /rootfs/usr /usr
+
+# Update library cache
+RUN ldconfig
+
+# Enable services
+RUN systemctl enable gdm.service && \
+    systemctl enable NetworkManager.service && \
+    systemctl set-default graphical.target
+
+LABEL org.opencontainers.image.title="Ichtux Phase 3: Graphical Stack"
+LABEL org.opencontainers.image.description="Graphics components built from source with Phase 1 toolchain + GNOME"
+LABEL org.opencontainers.image.source="https://github.com/hanthor/Ichtux"
+LABEL ichtux.phase="3-graphical"
+LABEL ichtux.lfs.from-scratch="partial"
+LABEL ichtux.built-with="phase1-toolchain"
+LABEL ichtux.components.from-source="mesa,wayland,libdrm,pixman"
+LABEL ichtux.components.packaged="gnome,systemd"
