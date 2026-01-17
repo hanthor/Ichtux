@@ -59,32 +59,33 @@ ARG BISON_VERSION=3.8.2
 ARG WGET_VERSION=1.21.4
 
 # Download ALL sources (last time using Alpine's wget)
-RUN wget -q https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.xz && \
-    wget -q https://ftp.gnu.org/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz && \
-    wget -q https://ftp.gnu.org/gnu/glibc/glibc-${GLIBC_VERSION}.tar.xz && \
-    wget -q https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${LINUX_VERSION}.tar.xz && \
-    wget -q https://ftp.gnu.org/gnu/mpfr/mpfr-${MPFR_VERSION}.tar.xz && \
-    wget -q https://ftp.gnu.org/gnu/gmp/gmp-${GMP_VERSION}.tar.xz && \
-    wget -q https://ftp.gnu.org/gnu/mpc/mpc-${MPC_VERSION}.tar.gz && \
-    wget -q https://gcc.gnu.org/pub/gcc/infrastructure/isl-${ISL_VERSION}.tar.bz2 && \
-    wget -q https://ftp.gnu.org/gnu/m4/m4-${M4_VERSION}.tar.xz && \
-    wget -q https://ftp.gnu.org/gnu/ncurses/ncurses-${NCURSES_VERSION}.tar.gz && \
-    wget -q https://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}.tar.gz && \
-    wget -q https://ftp.gnu.org/gnu/coreutils/coreutils-${COREUTILS_VERSION}.tar.xz && \
-    wget -q https://ftp.gnu.org/gnu/diffutils/diffutils-${DIFFUTILS_VERSION}.tar.xz && \
-    wget -q https://ftp.astron.com/pub/file/file-${FILE_VERSION}.tar.gz && \
-    wget -q https://ftp.gnu.org/gnu/findutils/findutils-${FINDUTILS_VERSION}.tar.xz && \
-    wget -q https://ftp.gnu.org/gnu/gawk/gawk-${GAWK_VERSION}.tar.xz && \
-    wget -q https://ftp.gnu.org/gnu/grep/grep-${GREP_VERSION}.tar.xz && \
-    wget -q https://ftp.gnu.org/gnu/gzip/gzip-${GZIP_VERSION}.tar.xz && \
-    wget -q https://ftp.gnu.org/gnu/make/make-${MAKE_VERSION}.tar.gz && \
-    wget -q https://ftp.gnu.org/gnu/patch/patch-${PATCH_VERSION}.tar.xz && \
-    wget -q https://ftp.gnu.org/gnu/sed/sed-${SED_VERSION}.tar.xz && \
-    wget -q https://ftp.gnu.org/gnu/tar/tar-${TAR_VERSION}.tar.xz && \
-    wget -q https://ftp.gnu.org/gnu/texinfo/texinfo-${TEXINFO_VERSION}.tar.xz && \
-    wget -q https://github.com/tukaani-project/xz/releases/download/v${XZ_VERSION}/xz-${XZ_VERSION}.tar.xz && \
-    wget -q https://ftp.gnu.org/gnu/bison/bison-${BISON_VERSION}.tar.xz && \
-    wget -q https://ftp.gnu.org/gnu/wget/wget-${WGET_VERSION}.tar.gz
+# Using --no-verbose instead of -q to show errors but not progress
+RUN wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/glibc/glibc-${GLIBC_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${LINUX_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/mpfr/mpfr-${MPFR_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/gmp/gmp-${GMP_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/mpc/mpc-${MPC_VERSION}.tar.gz && \
+    wget --no-verbose --tries=3 --timeout=30 https://gcc.gnu.org/pub/gcc/infrastructure/isl-${ISL_VERSION}.tar.bz2 && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/m4/m4-${M4_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/ncurses/ncurses-${NCURSES_VERSION}.tar.gz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}.tar.gz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/coreutils/coreutils-${COREUTILS_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/diffutils/diffutils-${DIFFUTILS_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.astron.com/pub/file/file-${FILE_VERSION}.tar.gz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/findutils/findutils-${FINDUTILS_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/gawk/gawk-${GAWK_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/grep/grep-${GREP_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/gzip/gzip-${GZIP_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/make/make-${MAKE_VERSION}.tar.gz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/patch/patch-${PATCH_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/sed/sed-${SED_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/tar/tar-${TAR_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/texinfo/texinfo-${TEXINFO_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://github.com/tukaani-project/xz/releases/download/v${XZ_VERSION}/xz-${XZ_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/bison/bison-${BISON_VERSION}.tar.xz && \
+    wget --no-verbose --tries=3 --timeout=30 https://ftp.gnu.org/gnu/wget/wget-${WGET_VERSION}.tar.gz
 
 # ===========================================================================
 # PHASE 1: Bootstrap GCC and Glibc (using Alpine's compiler)
