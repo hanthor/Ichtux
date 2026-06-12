@@ -46,7 +46,7 @@ WORKDIR /sources
 # Renovate-managed versions
 ARG MESA_VERSION=24.0.0
 ARG WAYLAND_VERSION=1.22.0
-ARG WAYLAND_PROTOCOLS_VERSION=1.33
+ARG WAYLAND_PROTOCOLS_VERSION=1.49
 ARG LIBDRM_VERSION=2.4.120
 ARG PIXMAN_VERSION=0.43.2
 ARG CAIRO_VERSION=1.18.0
@@ -86,7 +86,7 @@ RUN tar xf wayland-${WAYLAND_VERSION}.tar.xz && \
 # Build Wayland Protocols from source
 # ===========================================================================
 FROM wayland-build AS wayland-protocols-build
-ARG WAYLAND_PROTOCOLS_VERSION=1.33
+ARG WAYLAND_PROTOCOLS_VERSION=1.49
 
 RUN tar xf wayland-protocols-${WAYLAND_PROTOCOLS_VERSION}.tar.xz && \
     cd wayland-protocols-${WAYLAND_PROTOCOLS_VERSION} && \
