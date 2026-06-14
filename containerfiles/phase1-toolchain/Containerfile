@@ -6,7 +6,7 @@
 # ============================================================================
 # Minimal Bootstrap: Use Alpine ONLY for initial compiler
 # ============================================================================
-FROM alpine:3.19 AS alpine-bootstrap
+FROM alpine:3.24 AS alpine-bootstrap
 
 # Install ABSOLUTE MINIMUM - only for initial GCC/Glibc bootstrap
 RUN apk add --no-cache \
