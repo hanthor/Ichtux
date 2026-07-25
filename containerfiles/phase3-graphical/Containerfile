@@ -45,7 +45,7 @@ WORKDIR /sources
 
 # Renovate-managed versions
 ARG MESA_VERSION=24.0.0
-ARG WAYLAND_VERSION=1.22.0
+ARG WAYLAND_VERSION=1.26.0
 ARG WAYLAND_PROTOCOLS_VERSION=1.33
 ARG LIBDRM_VERSION=2.4.120
 ARG PIXMAN_VERSION=0.43.2
@@ -74,7 +74,7 @@ RUN tar xf libdrm-${LIBDRM_VERSION}.tar.xz && \
 # Build Wayland from source
 # ===========================================================================
 FROM build-base-fed AS wayland-build
-ARG WAYLAND_VERSION=1.22.0
+ARG WAYLAND_VERSION=1.26.0
 
 RUN tar xf wayland-${WAYLAND_VERSION}.tar.xz && \
     cd wayland-${WAYLAND_VERSION} && \
